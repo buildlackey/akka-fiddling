@@ -4,19 +4,16 @@ import akka.pattern.ask
 import akka.util.Timeout
 import rest.{SupplierHttpService, RoutesActor}
 import spray.can.Http
-import utils.{ PersistenceModuleImpl, ActorModuleImpl, ConfigurationModuleImpl}
+import utils.{ ActorModuleImpl, ConfigurationModuleImpl}
 import scala.concurrent.duration._
 
 
-object Boot extends App   {
-
-  // configuring modules for application, cake pattern for DI
-  val modules = new ConfigurationModuleImpl  with ActorModuleImpl with PersistenceModuleImpl
+object Boot extends App   with ActorModuleImpl {
 
   // create and start our service actor
-  val service = modules.system.actorOf(Props(classOf[RoutesActor], modules), "routesActor")
+  val service = system.actorOf(Props(classOf[RoutesActor]), "routesActor")
 
-  implicit val system = modules.system
+  implicit val sys = system
   implicit val timeout = Timeout(5.seconds)
 
   // start a new HTTP server on port 8080 with our service actor as the handler

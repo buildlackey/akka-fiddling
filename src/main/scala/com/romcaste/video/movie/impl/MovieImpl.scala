@@ -4,8 +4,10 @@ import akka.actor.FSM.->
 import com.romcaste.video.media.Operator
 import com.romcaste.video.movie.Field._
 import com.romcaste.video.movie.{Field, MediaType, Movie, Rating}
+import spray.httpx.SprayJsonSupport
+import spray.json._
 
-final class MovieImpl(title: String,
+final case class MovieImpl(title: String,
                       media: MediaType,
                       year: Short,
                       description: String,
@@ -159,7 +161,18 @@ final class MovieImpl(title: String,
 }
 
 
-private object MovieImpl {
+object MovieImpl extends DefaultJsonProtocol with SprayJsonSupport {
+  /*
+  def apply (title: String,
+             media: MediaType,
+             year: Short,
+             description: String,
+             actors: List[String],
+             rating: Rating) : MovieImpl = {
+    new MovieImpl( title, media, year, description, actors, rating )
+  }
+
+   */
 
   // compareLists: comparator for sorting by actor list - kept in companion object so we can more easily test it.
   //
@@ -184,5 +197,29 @@ private object MovieImpl {
       case Nil => list2.nonEmpty
     }
   }
+
+  // implicit JSON marshaller for MediaType
+  implicit object mediaTypeJsonFormat extends RootJsonFormat[MediaType] {
+    def write(mtype: MediaType) = JsString(mtype.toString)
+
+    def read(value: JsValue) = value match {
+      case JsString(mtype) => MediaType.valueOf(mtype)
+      case _ => deserializationError("MediaType string expected")
+    }
+  }
+
+  // implicit JSON marshaller for Rating
+  implicit object ratingJsonFormat extends RootJsonFormat[Rating] {
+    def write(rating: Rating) = JsString(rating.toString)
+
+    def read(value: JsValue) = value match {
+      case JsString(rating) => Rating.valueOf(rating)
+      case _ => deserializationError("Rating string expected")
+    }
+  }
+
+  implicit def userJsonFormat: RootJsonFormat[MovieImpl] =
+    jsonFormat(MovieImpl.apply, "title", "media", "year", "description", "actors", "rating")
 }
+
 

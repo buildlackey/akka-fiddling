@@ -1,7 +1,7 @@
 package rest
 
 import akka.testkit.TestProbe
-import utils.{PersistenceModule, ConfigurationModuleImpl, ActorModule}
+import utils.{ConfigurationModuleImpl, ActorModule}
 import akka.actor.ActorRef
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
@@ -10,6 +10,8 @@ import org.specs2.mutable.Specification
 import spray.testkit.Specs2RouteTest
 
 trait AbstractRestTest extends Specification with Specs2RouteTest {
+
+  /*
 
   val suppliersActor = TestProbe()
 
@@ -32,4 +34,5 @@ trait AbstractRestTest extends Specification with Specs2RouteTest {
     })
 
   }
+   */
 }

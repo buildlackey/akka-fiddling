@@ -12,6 +12,8 @@ import scala.collection.mutable.ListBuffer
 
 // we separate out implementation of media manager methods into this trait to ease instantiation of objects for testing
 //
+// new
+
 trait MediaManagerTrait extends com.romcaste.video.media.MediaManager {
 
   // cannonicalize added movies via a set (mutable for this toy example), and a separate list view of the

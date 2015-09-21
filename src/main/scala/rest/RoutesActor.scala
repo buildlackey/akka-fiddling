@@ -1,17 +1,17 @@
 package rest
 
-import akka.actor.{ Actor}
+import akka.actor.{ActorRefFactory, Actor}
+import com.romcaste.video.movie.Rating
+import com.romcaste.video.movie.impl.MovieImpl
 import com.wordnik.swagger.annotations._
-import entities.JsonProtocol
-import persistence.dal.SuppliersDAA._
-import persistence.entities._
+import spray.routing.directives.ContentTypeResolver
 import scala.concurrent.Future
 import com.typesafe.scalalogging.LazyLogging
 import spray.httpx.SprayJsonSupport
 import spray.routing._
 import spray.http._
 import MediaTypes._
-import utils.{PersistenceModule, Configuration}
+import utils.{Configuration}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 import spray.http.StatusCodes._
@@ -22,67 +22,40 @@ import com.gettyimages.spray.swagger._
 import com.wordnik.swagger.model.ApiInfo
 import scala.reflect.runtime.universe._
 
-class RoutesActor(modules: Configuration with PersistenceModule) extends Actor with HttpService with LazyLogging {
-  import JsonProtocol._
-  import SprayJsonSupport._
-
+class RoutesActor() extends Actor with HttpService with LazyLogging {
   def actorRefFactory = context
 
   implicit val timeout = Timeout(5.seconds)
 
-  // create table for suppliers if the table didn't exist (should be removed, when the database wasn't h2)
-  modules.suppliersDAA ? CreateTables
-
-  val swaggerService = new SwaggerHttpService {
-    override def apiTypes = Seq(typeOf[SupplierHttpService])
-    override def apiVersion = "2.0"
-    override def baseUrl = "/"
-    override def docsPath = "api-docs"
-    override def actorRefFactory = context
-    override def apiInfo = Some(new ApiInfo("Spray-Slick-Swagger Sample", "A scala rest api.", "TOC Url", "Cláudio Diniz cfpdiniz@gmail.com", "Apache V2", "http://www.apache.org/licenses/LICENSE-2.0"))
+  def receive = {
+    runRoute(new SupplierHttpService(context).getRoute)
   }
-
-  val suppliers = new SupplierHttpService(modules){
-    def actorRefFactory = context
-  }
-
-
-  def receive = runRoute( suppliers.SupplierPostRoute ~ suppliers.SupplierGetRoute ~ swaggerService.routes ~
-    get {
-      pathPrefix("") { pathEndOrSingleSlash {
-        getFromResource("swagger-ui/index.html")
-      }
-      } ~
-        getFromResourceDirectory("swagger-ui")
-    })
 }
 
-
-
 @Api(value = "/supplier", description = "Operations about suppliers")
-abstract class SupplierHttpService(modules: Configuration with PersistenceModule) extends HttpService {
-
-  import JsonProtocol._
+class SupplierHttpService(ctx: ActorRefFactory) extends HttpService {
   import SprayJsonSupport._
-
   implicit val timeout = Timeout(5.seconds)
 
-  @ApiOperation(httpMethod = "GET", response = classOf[Supplier], value = "Returns a supplier based on ID")
+  def actorRefFactory = ctx
+
+  @ApiOperation(httpMethod = "GET", response = classOf[MovieImpl], value = "Returns a supplier based on ID")
   @ApiImplicitParams(Array(
     new ApiImplicitParam(name = "supplierId", required = true, dataType = "integer", paramType = "path", value = "The BIG ID of supplier that needs to be fetched")
   ))
   @ApiResponses(Array(
     new ApiResponse(code = 200, message = "Ok")))
-  def SupplierGetRoute = path("supplier" / IntNumber) { (supId)      =>
+  def SupplierGetRoute = path("supplier" / IntNumber) { (supId) =>
     get {
       respondWithMediaType(`application/json`) {
-        onComplete((modules.suppliersDAA ? GetSupplierById(supId)).mapTo[Future[Seq[Supplier]]]) {
-          case Success(photos) => {
-            val result = Seq(Supplier(Some(1),"name 2", "desc 2"))
-            complete(result)
-          }
-          case Failure(ex) => complete(InternalServerError, s"An error occurred: ${ex.getMessage}")
-        }
+        val x = new MovieImpl(
+          title = "foo",
+          media = com.romcaste.video.movie.MediaType.VHS,
+          year = 2008,
+          description = "a movie",
+          actors = List("joe", "bob"),
+          rating = Rating.G)
+        complete(x)
       }
     }
   }
@@ -95,18 +68,51 @@ abstract class SupplierHttpService(modules: Configuration with PersistenceModule
     new ApiResponse(code = 400, message = "Bad Request"),
     new ApiResponse(code = 201, message = "Entity Created")
   ))
-  def SupplierPostRoute = path("supplier"){
+  def SupplierPostRoute = path("supplier") {
     post {
-      entity(as[SimpleSupplier]){ supplierToInsert =>  onComplete((modules.suppliersDAA ? Save(Supplier(None,supplierToInsert.name,supplierToInsert.desc)))) {
-        // ignoring the number of insertedEntities because in this case it should always be one, you might check this in other cases
-        case Success(insertedEntities) => {
-          //println("saved to DB" + supplierToInsert)
-          complete(StatusCodes.Created)
-        }
-        case Failure(ex) => complete(InternalServerError, s"An error occurred: ${ex.getMessage}")
+      entity(as[MovieImpl]) { (supplierToInsert: MovieImpl) => {
+        println("saved to DB" + supplierToInsert)
+        complete("ok")
       }
       }
     }
   }
+
+  def getRoute: Route = {
+    implicit val context = ctx
+    import spray.routing.directives.ContentTypeResolver.Default
+    import spray.util.LoggingContext
+
+    val apiDocsHttpSvc = new ApiDocsHttpService(ctx: ActorRefFactory)
+
+    val route: Route = SupplierPostRoute ~ SupplierGetRoute ~ apiDocsHttpSvc.routes ~
+      get {
+        pathPrefix("") {
+          pathEndOrSingleSlash {
+            getFromResource("swagger-ui/index.html")
+          }
+        } ~
+          getFromResourceDirectory("swagger-ui")
+      }
+
+    route
+  }
 }
 
+
+class ApiDocsHttpService(ctx: ActorRefFactory) extends SwaggerHttpService {
+  override def apiTypes = Seq(typeOf[SupplierHttpService])
+  override def apiVersion = "2.0"
+  override def baseUrl = "/"
+  override def docsPath = "api-docs"
+  override def actorRefFactory = ctx
+  override def apiInfo =
+    Some(
+      new ApiInfo(
+        "MovieRepositoryManager",
+        "An api for managing assets in a movie database",
+        "TOC Url",
+        "chris@buildlackey.com",
+        "Apache V2",
+        "http://www.apache.org/licenses/LICENSE-2.0"))
+}

@@ -1,17 +1,19 @@
 package rest
 
 import akka.actor.{ActorRefFactory, Actor}
+import com.romcaste.video.media.impl.MediaManagerTrait
 import com.romcaste.video.movie.Rating
 import com.romcaste.video.movie.impl.MovieImpl
 import com.wordnik.swagger.annotations._
+import spray.http.HttpHeaders.{Location, RawHeader}
 import spray.routing.directives.ContentTypeResolver
+import spray.util.LoggingContext
 import scala.concurrent.Future
 import com.typesafe.scalalogging.LazyLogging
 import spray.httpx.SprayJsonSupport
 import spray.routing._
 import spray.http._
 import MediaTypes._
-import utils.{Configuration}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 import spray.http.StatusCodes._
@@ -28,51 +30,80 @@ class RoutesActor() extends Actor with HttpService with LazyLogging {
   implicit val timeout = Timeout(5.seconds)
 
   def receive = {
-    runRoute(new SupplierHttpService(context).getRoute)
+    runRoute(new MovieHttpService(context).getRoute)
   }
 }
 
-@Api(value = "/supplier", description = "Operations about suppliers")
-class SupplierHttpService(ctx: ActorRefFactory) extends HttpService {
+@Api(value = "/movie", description = "Movie inventory management API")
+class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManagerTrait {
+
   import SprayJsonSupport._
+  import com.romcaste.video.movie.Field._
+  import com.romcaste.video.movie.MediaType._
+  import com.romcaste.video.media.Operator._
+
   implicit val timeout = Timeout(5.seconds)
+
+  // Initialize with some dummy movies to exercise REST API
+  addMovies(
+    new MovieImpl(
+      title = "dogs",
+      media = com.romcaste.video.movie.MediaType.VHS,
+      year = 2008,
+      description = "a movie about dogs",
+      actors = List("joe", "bob"),
+      rating = Rating.G),
+    new MovieImpl(
+      title = "pigs",
+      media = com.romcaste.video.movie.MediaType.VHS,
+      year = 2009,
+      description = "a movie about pigs",
+      actors = List("rover", "porky"),
+      rating = Rating.G))
+
 
   def actorRefFactory = ctx
 
-  @ApiOperation(httpMethod = "GET", response = classOf[MovieImpl], value = "Returns a supplier based on ID")
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(name = "supplierId", required = true, dataType = "integer", paramType = "path", value = "The BIG ID of supplier that needs to be fetched")
-  ))
+  @ApiOperation(
+    httpMethod = "GET",
+    response = classOf[MovieImpl],
+    value = "Returns a movie based on title passed as the final path parameter")
+  @ApiImplicitParams(
+    Array(
+      new ApiImplicitParam(
+        name = "movieId",
+        required = true,
+        dataType = "integer",
+        paramType = "path",
+        value = "Title of movie to be returned")
+    ))
   @ApiResponses(Array(
     new ApiResponse(code = 200, message = "Ok")))
-  def SupplierGetRoute = path("supplier" / IntNumber) { (supId) =>
+  def MovieGetRoute = path("movies" / Segment) { (title: String) =>
     get {
       respondWithMediaType(`application/json`) {
-        val x = new MovieImpl(
-          title = "foo",
-          media = com.romcaste.video.movie.MediaType.VHS,
-          year = 2008,
-          description = "a movie",
-          actors = List("joe", "bob"),
-          rating = Rating.G)
-        complete(x)
+        val movieList = filterMovies(TITLE, EQUALS, title)
+        if (movieList.isEmpty) complete(NotFound) else complete(movieList.get(0).asInstanceOf[MovieImpl])
       }
     }
   }
 
-  @ApiOperation(value = "Add Supplier", nickname = "addSuplier", httpMethod = "POST", consumes = "application/json", produces = "text/plain; charset=UTF-8")
+  @ApiOperation(value = "Add Movie", nickname = "addSuplier", httpMethod = "POST", consumes = "application/json", produces = "text/plain; charset=UTF-8")
   @ApiImplicitParams(Array(
-    new ApiImplicitParam(name = "body", value = "Supplier Object", dataType = "persistence.entities.SimpleSupplier", required = true, paramType = "body")
+    new ApiImplicitParam(name = "body", value = "Movie Object", dataType = "persistence.entities.SimpleMovie", required = true, paramType = "body")
   ))
   @ApiResponses(Array(
     new ApiResponse(code = 400, message = "Bad Request"),
     new ApiResponse(code = 201, message = "Entity Created")
   ))
-  def SupplierPostRoute = path("supplier") {
+  def MoviePostRoute = path("movies") {
     post {
-      entity(as[MovieImpl]) { (supplierToInsert: MovieImpl) => {
-        println("saved to DB" + supplierToInsert)
-        complete("ok")
+      entity(as[MovieImpl]) { (movieToInsert: MovieImpl) => {
+        println("saving movie to DB" + movieToInsert)
+        addMovies(movieToInsert)
+        respondWithHeaders(Location(Uri("/movies/" + movieToInsert.getTitle))) {
+          complete(StatusCodes.Created)
+        }
       }
       }
     }
@@ -83,9 +114,26 @@ class SupplierHttpService(ctx: ActorRefFactory) extends HttpService {
     import spray.routing.directives.ContentTypeResolver.Default
     import spray.util.LoggingContext
 
+    val exceptionHandler = ExceptionHandler {
+      case e: IllegalArgumentException =>
+        requestUri { uri =>
+          complete(BadRequest, "Invalid request" + e.getMessage)
+        }
+    }
+
+    val rejectionHandler = RejectionHandler {
+      case MalformedRequestContentRejection(message, cause) :: _ =>
+        complete(BadRequest, "Invalid Request: " + cause.getOrElse(""))
+    }
+
     val apiDocsHttpSvc = new ApiDocsHttpService(ctx: ActorRefFactory)
 
-    val route: Route = SupplierPostRoute ~ SupplierGetRoute ~ apiDocsHttpSvc.routes ~
+    val route: Route = handleExceptions(exceptionHandler) {
+      handleRejections(rejectionHandler) {
+        MoviePostRoute ~ MovieGetRoute
+      }
+    } ~
+      apiDocsHttpSvc.routes ~
       get {
         pathPrefix("") {
           pathEndOrSingleSlash {
@@ -94,18 +142,22 @@ class SupplierHttpService(ctx: ActorRefFactory) extends HttpService {
         } ~
           getFromResourceDirectory("swagger-ui")
       }
-
     route
   }
 }
 
 
 class ApiDocsHttpService(ctx: ActorRefFactory) extends SwaggerHttpService {
-  override def apiTypes = Seq(typeOf[SupplierHttpService])
+  override def apiTypes = Seq(typeOf[MovieHttpService])
+
   override def apiVersion = "2.0"
+
   override def baseUrl = "/"
+
   override def docsPath = "api-docs"
+
   override def actorRefFactory = ctx
+
   override def apiInfo =
     Some(
       new ApiInfo(

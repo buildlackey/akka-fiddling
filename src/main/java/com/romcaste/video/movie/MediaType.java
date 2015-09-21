@@ -10,11 +10,6 @@
 
 package com.romcaste.video.movie;
 
-/**
- * The media type of a movie.
- *
- * @author  <a href="mailto:clark_malmgren@cable.romcaste.com">Clark Malmgren</a>
- */
 public enum MediaType {
 
     VHS, LAZERDISK, DVD, VCD, HD_DVD, BLURAY

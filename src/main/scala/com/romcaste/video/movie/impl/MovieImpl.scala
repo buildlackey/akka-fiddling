@@ -13,14 +13,14 @@ final case class MovieImpl(title: String,
                       description: String,
                       actors: List[String],
                       rating: Rating) extends Movie {
-  require(title != null && !title.isEmpty)
+  require(title != null && !title.isEmpty, "title can not be empty")
   require(media != null)
   require(description != null) // empty description could make sense, so allow it
   require(actors != null)
   require(rating != null)
 
   // movies will likely be replaced by something at this point in future...
-  require(year < 2100)
+  require(year < 2100, "specified year is to far in the future")
 
   // flatten out possible dups in list into one cannonical name, and then sort list so equals works sensibly
   private[this] val actorList: Array[String] = (actors.toSet.toArray: Array[String]).sorted
@@ -162,17 +162,6 @@ final case class MovieImpl(title: String,
 
 
 object MovieImpl extends DefaultJsonProtocol with SprayJsonSupport {
-  /*
-  def apply (title: String,
-             media: MediaType,
-             year: Short,
-             description: String,
-             actors: List[String],
-             rating: Rating) : MovieImpl = {
-    new MovieImpl( title, media, year, description, actors, rating )
-  }
-
-   */
 
   // compareLists: comparator for sorting by actor list - kept in companion object so we can more easily test it.
   //

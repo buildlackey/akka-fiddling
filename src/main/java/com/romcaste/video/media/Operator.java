@@ -13,8 +13,6 @@ package com.romcaste.video.media;
 /**
  * Enumeration of all of the different valid operators for filtering a list of movie assets.
  *
- * @see     MediaManager#filterMovies(com.romcaste.video.movie.Field, Operator, String)
- * @author  <a href="mailto:clark_malmgren@cable.romcaste.com">Clark Malmgren</a>
  */
 public enum Operator {
 

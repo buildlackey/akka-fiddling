@@ -10,14 +10,6 @@
 
 package com.romcaste.video.movie;
 
-import com.romcaste.video.media.MediaManager;
-
-/**
- * An enumeration for each field within a {@link Movie} that can be used by a {@link MediaManager}
- * to filter or sort.
- *
- * @author  <a href="mailto:clark_malmgren@cable.romcaste.com">Clark Malmgren</a>
- */
 public enum Field {
 
 	/** @see Movie#getTitle() */

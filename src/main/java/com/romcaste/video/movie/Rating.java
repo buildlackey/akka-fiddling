@@ -10,11 +10,6 @@
 
 package com.romcaste.video.movie;
 
-/**
- * An enumeration of the valid MPAA ratings for movies in the United States.
- *
- * @author  <a href="mailto:clark_malmgren@cable.romcaste.com">Clark Malmgren</a>
- */
 public enum Rating {
 
     G, PG, PG_13, R, NC_17, NR

@@ -2,7 +2,7 @@ package rest
 
 import akka.actor.{ActorRefFactory, Actor}
 import com.romcaste.video.media.impl.MediaManagerTrait
-import com.romcaste.video.movie.Rating
+import com.romcaste.video.movie.{Movie, Rating}
 import com.romcaste.video.movie.impl.MovieImpl
 import com.wordnik.swagger.annotations._
 import spray.http.HttpHeaders.{Location, RawHeader}
@@ -23,6 +23,7 @@ import scala.concurrent.duration._
 import com.gettyimages.spray.swagger._
 import com.wordnik.swagger.model.ApiInfo
 import scala.reflect.runtime.universe._
+import scala.collection.JavaConverters._
 
 class RoutesActor() extends Actor with HttpService with LazyLogging {
   def actorRefFactory = context
@@ -67,30 +68,48 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   @ApiOperation(
     httpMethod = "GET",
     response = classOf[MovieImpl],
-    value = "Returns a movie based on title passed as the final path parameter")
+    value = "Returns a movie based on title passed as the final path parameter, or all movies if no param is provided")
   @ApiImplicitParams(
     Array(
       new ApiImplicitParam(
         name = "movieId",
-        required = true,
-        dataType = "integer",
+        required = false,
+        dataType = "string",
         paramType = "path",
         value = "Title of movie to be returned")
     ))
   @ApiResponses(Array(
     new ApiResponse(code = 200, message = "Ok")))
-  def MovieGetRoute = path("movies" / Segment) { (title: String) =>
-    get {
+  def MovieGetRoute = get {
+    path("movies" / Segment) { (title: String) =>
       respondWithMediaType(`application/json`) {
         val movieList = filterMovies(TITLE, EQUALS, title)
         if (movieList.isEmpty) complete(NotFound) else complete(movieList.get(0).asInstanceOf[MovieImpl])
       }
     }
+  } ~ get {
+    path("movies" / ) {
+      respondWithMediaType(`application/json`) {
+        val movieList : java.util.List[Movie] = getMovies
+        val movieImplList = movieList.asScala.map {_.asInstanceOf[MovieImpl]}.toList
+        System.out.println("movieImplList:" + movieImplList);
+        complete(movieImplList.toList)
+      }
+    }
   }
 
-  @ApiOperation(value = "Add Movie", nickname = "addSuplier", httpMethod = "POST", consumes = "application/json", produces = "text/plain; charset=UTF-8")
+  @ApiOperation(
+    value = "Add Movie",
+    nickname = "addMovie",
+    httpMethod = "POST",
+    consumes = "application/json",
+    produces = "application/json;charset=UTF-8")
   @ApiImplicitParams(Array(
-    new ApiImplicitParam(name = "body", value = "Movie Object", dataType = "persistence.entities.SimpleMovie", required = true, paramType = "body")
+    new ApiImplicitParam(name = "body",
+      value = "Movie Object",
+      dataType = "MovieImpl",
+      required = true,
+      paramType = "body")
   ))
   @ApiResponses(Array(
     new ApiResponse(code = 400, message = "Bad Request"),
@@ -99,7 +118,6 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   def MoviePostRoute = path("movies") {
     post {
       entity(as[MovieImpl]) { (movieToInsert: MovieImpl) => {
-        println("saving movie to DB" + movieToInsert)
         addMovies(movieToInsert)
         respondWithHeaders(Location(Uri("/movies/" + movieToInsert.getTitle))) {
           complete(StatusCodes.Created)

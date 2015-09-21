@@ -1,7 +1,7 @@
 package rest
 
 
-import com.romcaste.video.movie.{Rating, MediaType}
+import com.romcaste.video.movie.{Movie, Rating, MediaType}
 import com.romcaste.video.movie.impl.MovieImpl
 import org.specs2.mutable.Specification
 import spray.http.{HttpHeader, StatusCodes, StatusCode}
@@ -28,12 +28,23 @@ class RoutesAndMarshallingTest extends Specification with Specs2RouteTest {
   def actorRefFactory = system
 
   "MovieHttpService" should {
+
     "return a movie if a match is found in response a search of the form /movies/<title> " in {
-
-
       Get("/movies/dogs") ~> svc.getRoute ~> check {
         val movie: String = responseAs[String]
         movie must contain("joe")
+      }
+    }
+    "return a list of all movies response to a no-parameter request of the form /movies/ " in {
+      Get("/movies/") ~> svc.getRoute ~> check {
+        val movies = responseAs[List[MovieImpl]]
+        System.out.println("movies:" + movies);
+        System.out.println("movies:" + movies);
+        movies.length mustEqual  2
+        movies.map{_.title}.sorted mustEqual List("dogs", "pigs")
+        System.out.println("status:" + status);
+        System.out.println("status class:" + status.getClass.getName);
+        status.toString shouldEqual("200 OK")
       }
     }
     "return 404 (not found) if a /movies/<title> search request is is issued for a non-matching title" in {

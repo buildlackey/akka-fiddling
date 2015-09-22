@@ -29,14 +29,14 @@ class RoutesAndMarshallingTest extends Specification with Specs2RouteTest {
 
   "MovieHttpService" should {
 
-    "return a movie if a match is found in response a search of the form /movies/<title> " in {
-      Get("/movies/dogs") ~> svc.getRoute ~> check {
+    "return a movie if a match is found in response a search of the form /movieSvc/movies/<title> " in {
+      Get("/movieSvc/movie/dogs") ~> svc.getRoute ~> check {
         val movie: String = responseAs[String]
         movie must contain("joe")
       }
     }
-    "return a list of all movies response to a no-parameter request of the form /movies/ " in {
-      Get("/movies/") ~> svc.getRoute ~> check {
+    "return a list of all movies response to a no-parameter request of the form /movieSvc/movies/ " in {
+      Get("/movieSvc/movies/") ~> svc.getRoute ~> check {
         val movies = responseAs[List[MovieImpl]]
         System.out.println("movies:" + movies);
         System.out.println("movies:" + movies);
@@ -47,14 +47,14 @@ class RoutesAndMarshallingTest extends Specification with Specs2RouteTest {
         status.toString shouldEqual("200 OK")
       }
     }
-    "return 404 (not found) if a /movies/<title> search request is is issued for a non-matching title" in {
-      Get("/movies/nonexistent") ~> svc.getRoute ~> check {
+    "return 404 (not found) if a /movieSvc/movies/<title> search request is is issued for a non-matching title" in {
+      Get("/movieSvc/movie/nonexistent") ~> svc.getRoute ~> check {
         status mustEqual StatusCodes.NotFound
       }
     }
     "return a 201 after successful POST of test fixture that is auto-marshalled to JSON " in {
       Post(
-        "/movies",
+        "/movieSvc/movies",
         new MovieImpl(
           "title1", MediaType.VHS, 2000, "a description", List("mike", "ike"), Rating.PG)) ~>
         svc.getRoute ~>
@@ -67,7 +67,7 @@ class RoutesAndMarshallingTest extends Specification with Specs2RouteTest {
 
       val entity = HttpEntity(`application/json`, jsonString.getBytes)
 
-      Post( "/movies", entity) ~>
+      Post( "/movieSvc/movies", entity) ~>
         svc.getRoute ~>
         check {
           status === StatusCodes.Created
@@ -77,7 +77,7 @@ class RoutesAndMarshallingTest extends Specification with Specs2RouteTest {
       val jsonString = getMovieAsJsonString("2200")   //  deliberately provide movie with an invalid year
       val entity = HttpEntity(`application/json`, jsonString.getBytes)
 
-      Post( "/movies", entity) ~>
+      Post( "/movieSvc/movies", entity) ~>
         svc.getRoute ~>
         check {
           System.out.println("status:" + status);

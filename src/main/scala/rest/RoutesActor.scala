@@ -6,6 +6,7 @@ import com.romcaste.video.movie.{Movie, Rating}
 import com.romcaste.video.movie.impl.MovieImpl
 import com.wordnik.swagger.annotations._
 import spray.http.HttpHeaders.{Location, RawHeader}
+import spray.http.Uri.Path
 import spray.routing.directives.ContentTypeResolver
 import spray.util.LoggingContext
 import scala.concurrent.Future
@@ -35,7 +36,7 @@ class RoutesActor() extends Actor with HttpService with LazyLogging {
   }
 }
 
-@Api(value = "/movie", description = "Movie inventory management API")
+@Api(value = "/movieService", description = "Movie inventory management API")
 class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManagerTrait {
 
   import SprayJsonSupport._
@@ -81,17 +82,19 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   @ApiResponses(Array(
     new ApiResponse(code = 200, message = "Ok")))
   def MovieGetRoute = get {
-    path("movies" / Segment) { (title: String) =>
+    path("movieSvc" / "movie" / Segment) { (title: String) =>
       respondWithMediaType(`application/json`) {
         val movieList = filterMovies(TITLE, EQUALS, title)
         if (movieList.isEmpty) complete(NotFound) else complete(movieList.get(0).asInstanceOf[MovieImpl])
       }
     }
   } ~ get {
-    path("movies" / ) {
+    path("movieSvc" / "movies" /) {
       respondWithMediaType(`application/json`) {
-        val movieList : java.util.List[Movie] = getMovies
-        val movieImplList = movieList.asScala.map {_.asInstanceOf[MovieImpl]}.toList
+        val movieList: java.util.List[Movie] = getMovies
+        val movieImplList = movieList.asScala.map {
+          _.asInstanceOf[MovieImpl]
+        }.toList
         System.out.println("movieImplList:" + movieImplList);
         complete(movieImplList.toList)
       }
@@ -115,14 +118,18 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
     new ApiResponse(code = 400, message = "Bad Request"),
     new ApiResponse(code = 201, message = "Entity Created")
   ))
-  def MoviePostRoute = path("movies") {
+  def MoviePostRoute = path("movieSvc" / "movies") {
     post {
-      entity(as[MovieImpl]) { (movieToInsert: MovieImpl) => {
-        addMovies(movieToInsert)
-        respondWithHeaders(Location(Uri("/movies/" + movieToInsert.getTitle))) {
-          complete(StatusCodes.Created)
+      requestInstance { request =>
+        entity(as[MovieImpl]) {
+          (movieToInsert: MovieImpl) => {
+            addMovies(movieToInsert)
+            val pathToNewResource =  request.uri.withPath( request.uri.path  /  movieToInsert.getTitle )
+            respondWithHeaders(Location(pathToNewResource)) {
+              complete(StatusCodes.Created)
+            }
+          }
         }
-      }
       }
     }
   }

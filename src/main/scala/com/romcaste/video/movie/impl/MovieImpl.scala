@@ -207,6 +207,16 @@ object MovieImpl extends DefaultJsonProtocol with SprayJsonSupport {
     }
   }
 
+  // implicit JSON marshaller for Field
+  implicit object fieldJsonFormat extends RootJsonFormat[Field] {
+    def write(field: Field) = JsString(field.toString)
+
+    def read(value: JsValue) = value match {
+      case JsString(field) => Field.valueOf(field)
+      case _ => deserializationError("Field string expected")
+    }
+  }
+
   implicit def userJsonFormat: RootJsonFormat[MovieImpl] =
     jsonFormat(MovieImpl.apply, "title", "media", "year", "description", "actors", "rating")
 }

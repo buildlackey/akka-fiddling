@@ -1,12 +1,15 @@
 package rest
 
+import java.util
+
 import akka.actor.{ActorRefFactory, Actor}
 import com.romcaste.video.media.impl.MediaManagerTrait
-import com.romcaste.video.movie.{Movie, Rating}
+import com.romcaste.video.movie.{Field, Movie, Rating}
 import com.romcaste.video.movie.impl.MovieImpl
 import com.wordnik.swagger.annotations._
 import spray.http.HttpHeaders.{Location, RawHeader}
 import spray.http.Uri.Path
+import spray.json.{JsValue, JsString, RootJsonFormat}
 import spray.routing.directives.ContentTypeResolver
 import spray.util.LoggingContext
 import scala.concurrent.Future
@@ -25,6 +28,7 @@ import com.gettyimages.spray.swagger._
 import com.wordnik.swagger.model.ApiInfo
 import scala.reflect.runtime.universe._
 import scala.collection.JavaConverters._
+import language.postfixOps
 
 class RoutesActor() extends Actor with HttpService with LazyLogging {
   def actorRefFactory = context
@@ -73,7 +77,7 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   @ApiImplicitParams(
     Array(
       new ApiImplicitParam(
-        name = "movieId",
+        name = "title",
         required = false,
         dataType = "string",
         paramType = "path",
@@ -88,10 +92,18 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
         if (movieList.isEmpty) complete(NotFound) else complete(movieList.get(0).asInstanceOf[MovieImpl])
       }
     }
-  } ~ get {
+  } ~ MovieListGetRoute ~ MovieSortedByGetRoute
+
+  @ApiOperation(
+    httpMethod = "GET",
+    response = classOf[List[MovieImpl]],
+    value = "Returns a list of all movies in the current inventory")
+  @ApiResponses(Array(
+    new ApiResponse(code = 200, message = "Ok")))
+  def MovieListGetRoute = get {
     path("movieSvc" / "movies" /) {
       respondWithMediaType(`application/json`) {
-        val movieList: java.util.List[Movie] = getMovies
+        val movieList: util.List[Movie] = getMovies
         val movieImplList = movieList.asScala.map {
           _.asInstanceOf[MovieImpl]
         }.toList
@@ -100,6 +112,47 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
       }
     }
   }
+
+
+  //value = "Returns a list of movies matching the given search criteria")
+
+
+  @ApiOperation(
+    httpMethod = "GET",
+    response = classOf[List[MovieImpl]],
+    value = "Returns a list of movies sorted by the specified field in either ascending or descending order")
+  @ApiImplicitParams(
+    Array(
+      new ApiImplicitParam(
+        name = "movieId",
+        required = false,
+        dataType = "string",
+        paramType = "query",
+        value = "Title of movie to be returned"),
+      new ApiImplicitParam(
+        name = "ascending",
+        required = true,
+        dataType = "boolean",
+        paramType = "query",
+        value = "true if movies are to be sorted ascending order, else false")
+    )
+  )
+  @ApiResponses(Array(
+    new ApiResponse(code = 200, message = "Ok")))
+  def MovieSortedByGetRoute = get {
+    path("movieSvc" / "moviesSortedBy") {
+      parameter("field") { (field: String) =>
+        parameter('ascending.as[Boolean]) { (ascending: Boolean) =>
+          respondWithMediaType(`application/json`) {
+            val movies: List[Movie] = sortMovies(Field.valueOf(field), ascending).asScala.toList
+            val movieImplList = movies.map { _.asInstanceOf[MovieImpl] }.toList
+            complete(movieImplList)
+          }
+        }
+      }
+    }
+  }
+
 
   @ApiOperation(
     value = "Add Movie",
@@ -124,7 +177,7 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
         entity(as[MovieImpl]) {
           (movieToInsert: MovieImpl) => {
             addMovies(movieToInsert)
-            val pathToNewResource =  request.uri.withPath( request.uri.path  /  movieToInsert.getTitle )
+            val pathToNewResource = request.uri.withPath(request.uri.path / movieToInsert.getTitle)
             respondWithHeaders(Location(pathToNewResource)) {
               complete(StatusCodes.Created)
             }
@@ -133,6 +186,7 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
       }
     }
   }
+
 
   def getRoute: Route = {
     implicit val context = ctx

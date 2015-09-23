@@ -84,10 +84,14 @@ trait MediaManagerTrait extends com.romcaste.video.media.MediaManager {
         val impl1 = m1.asInstanceOf[MovieImpl]
         val impl2 = m2.asInstanceOf[MovieImpl]
         val comparator = flipBooleanFunc(impl1.getStateMapField(field).comparator, !ascending /* flip if descending*/)
-        comparator(impl1, impl2)
+        val res  = comparator(impl1, impl2)
+        System.out.println("res of flipped:" + res);
+        res
       }
     )
-    sortedList.asJava
+    val listo = sortedList.asJava
+    System.out.println("listo:" + listo);
+    listo
   }
 
 

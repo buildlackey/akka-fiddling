@@ -38,6 +38,7 @@ class RoutesActor() extends Actor with HttpService with LazyLogging {
   def receive = {
     runRoute(new MovieHttpService(context).getRoute)
   }
+
 }
 
 @Api(value = "/movieSvc", description = "Movie inventory management service")
@@ -71,7 +72,7 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   def actorRefFactory = ctx
 
 
-  //@Path("/movie")
+  @Path("/movies/{title}")
   @ApiOperation(
     httpMethod = "GET",
     response = classOf[MovieImpl],
@@ -88,7 +89,7 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   @ApiResponses(Array(
     new ApiResponse(code = 200, message = "Ok")))
   def MovieGetRoute = get {
-    path("movieSvc" / "movie" / Segment) { (title: String) =>
+    path("movieSvc" / "movies" / Segment) { (title: String) =>
       respondWithMediaType(`application/json`) {
         val movieList = filterMovies(TITLE, EQUALS, title)
         if (movieList.isEmpty) complete(NotFound) else complete(movieList.get(0).asInstanceOf[MovieImpl])
@@ -96,11 +97,11 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
     }
   } ~ MovieListGetRoute ~ MovieSortedByGetRoute
 
-  //@Path("/movies")
+  @Path("/movies/")
   @ApiOperation(
     httpMethod = "GET",
     response = classOf[List[MovieImpl]],
-    value = "Returns a list of all movies in the current inventory")
+    value = "Returns a list of all movies in the current inventory - don't forget trailing slash !")
   @ApiResponses(Array(
     new ApiResponse(code = 200, message = "Ok")))
   def MovieListGetRoute = get {
@@ -117,9 +118,10 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   }
 
 
+
   //value = "Returns a list of movies matching the given search criteria")
 
-  //@Path("/moviesSortedBy")
+  @Path("/moviesSortedBy")
   @ApiOperation(
     httpMethod = "GET",
     response = classOf[List[MovieImpl]],
@@ -127,11 +129,11 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   @ApiImplicitParams(
     Array(
       new ApiImplicitParam(
-        name = "movieId",
+        name = "field",
         required = false,
         dataType = "string",
         paramType = "query",
-        value = "Title of movie to be returned"),
+        value = "field by which list of movies will be sorted"),
       new ApiImplicitParam(
         name = "ascending",
         required = true,
@@ -148,7 +150,9 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
         parameter('ascending.as[Boolean]) { (ascending: Boolean) =>
           respondWithMediaType(`application/json`) {
             val movies: List[Movie] = sortMovies(Field.valueOf(field), ascending).asScala.toList
-            val movieImplList = movies.map { _.asInstanceOf[MovieImpl] }.toList
+            val movieImplList = movies.map {
+              _.asInstanceOf[MovieImpl]
+            }.toList
             complete(movieImplList)
           }
         }
@@ -157,7 +161,8 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   }
 
 
-  //@Path("/movies")
+
+  @Path("/movies")
   @ApiOperation(
     value = "Add Movie",
     nickname = "addMovie",

@@ -56,11 +56,21 @@ final case class MovieImpl(title: String,
   // comparator for fields that lack a nice natual ordering  (especially, Java types like enums, array lists, etc.)
   //
   private def compareViaField(field: Field)(m1: MovieImpl, m2: MovieImpl): Boolean = {
+    System.out.println("compare by field:" + field);
+    System.out.println("m1:" + m1);
+    System.out.println("m2:" + m2);
+
+
+
     if (field == ACTORS) {
       MovieImpl.compareLists(
         m1.stateMap(ACTORS).fieldValAsScala.asInstanceOf[List[String]],
         m2.stateMap(ACTORS).fieldValAsScala.asInstanceOf[List[String]])
-    } else m1.getField(field).toString < m2.getField(field).toString
+    } else {
+      val res  = m1.getField(field).toString < m2.getField(field).toString
+      System.out.println("res:" + res);
+      res
+    }
   }
 
   private def filterByField(field: Field)(movie: MovieImpl, op: Operator, criteria: String) = {
@@ -93,13 +103,23 @@ final case class MovieImpl(title: String,
     }
   }
 
+  private val comparatorFORTESTING: (MovieImpl,  MovieImpl) => Boolean = {
+    (m1: MovieImpl, m2: MovieImpl) => {
+      System.out.println("m1:" + m1);
+      System.out.println("m2:" + m2);
+      val res = m1.getYear < m2.getYear
+      System.out.println("res:" + res);
+      res
+    }
+  }
+
   private val stateMap: Map[Field, FieldRepresentation] = Map(
     TITLE ->
       FieldRepresentation(
         TITLE, _.getTitle < _.getTitle, filterByField(TITLE), title, title),
     YEAR ->
       FieldRepresentation(
-        YEAR, _.getYear < _.getYear, filterByField(YEAR), new java.lang.Short(year), year.toString),
+        YEAR, comparatorFORTESTING, filterByField(YEAR), new java.lang.Short(year), year.toString),
     MEDIA ->
       FieldRepresentation(
         MEDIA, compareViaField(MEDIA), filterByField(MEDIA), media, media.toString),

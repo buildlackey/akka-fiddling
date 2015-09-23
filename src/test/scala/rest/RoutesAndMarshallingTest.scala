@@ -25,12 +25,16 @@ import akka.actor.{Props, ActorSystem}
 class RoutesAndMarshallingTest extends Specification with Specs2RouteTest {
   val svc = new MovieHttpService(system)
 
+  sequential
+
   def actorRefFactory = system
 
   "MovieHttpService" should {
 
+    /*
+     */
     "return a movie if a match is found in response a search of the form /movieSvc/movies/<title> " in {
-      Get("/movieSvc/movie/dogs") ~> svc.getRoute ~> check {
+      Get("/movieSvc/movies/dogs") ~> svc.getRoute ~> check {
         val movie: String = responseAs[String]
         movie must contain("joe")
       }
@@ -40,15 +44,17 @@ class RoutesAndMarshallingTest extends Specification with Specs2RouteTest {
         val movies = responseAs[List[MovieImpl]]
         System.out.println("movies:" + movies);
         System.out.println("movies:" + movies);
-        movies.length mustEqual  2
-        movies.map{_.title}.sorted mustEqual List("dogs", "pigs")
+        movies.length mustEqual 2
+        movies.map {
+          _.title
+        }.sorted mustEqual List("dogs", "pigs")
         System.out.println("status:" + status);
         System.out.println("status class:" + status.getClass.getName);
-        status.toString shouldEqual("200 OK")
+        status.toString shouldEqual ("200 OK")
       }
     }
     "return 404 (not found) if a /movieSvc/movies/<title> search request is is issued for a non-matching title" in {
-      Get("/movieSvc/movie/nonexistent") ~> svc.getRoute ~> check {
+      Get("/movieSvc/movies/nonexistent") ~> svc.getRoute ~> check {
         status mustEqual StatusCodes.NotFound
       }
     }
@@ -67,17 +73,17 @@ class RoutesAndMarshallingTest extends Specification with Specs2RouteTest {
 
       val entity = HttpEntity(`application/json`, jsonString.getBytes)
 
-      Put( "/movieSvc/movies", entity) ~>
+      Put("/movieSvc/movies", entity) ~>
         svc.getRoute ~>
         check {
           status === StatusCodes.Created
         }
     }
     "return a 400 (bad request) after failed PUT of invalid hand crafted JSON string test fixture" in {
-      val jsonString = getMovieAsJsonString("2200")   //  deliberately provide movie with an invalid year
+      val jsonString = getMovieAsJsonString("2200") //  deliberately provide movie with an invalid year
       val entity = HttpEntity(`application/json`, jsonString.getBytes)
 
-      Put( "/movieSvc/movies", entity) ~>
+      Put("/movieSvc/movies", entity) ~>
         svc.getRoute ~>
         check {
           System.out.println("status:" + status);

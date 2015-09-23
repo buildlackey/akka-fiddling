@@ -1,6 +1,7 @@
 package rest
 
 import java.util
+import javax.ws.rs.Path
 
 import akka.actor.{ActorRefFactory, Actor}
 import com.romcaste.video.media.impl.MediaManagerTrait
@@ -8,7 +9,6 @@ import com.romcaste.video.movie.{Field, Movie, Rating}
 import com.romcaste.video.movie.impl.MovieImpl
 import com.wordnik.swagger.annotations._
 import spray.http.HttpHeaders.{Location, RawHeader}
-import spray.http.Uri.Path
 import spray.json.{JsValue, JsString, RootJsonFormat}
 import spray.routing.directives.ContentTypeResolver
 import spray.util.LoggingContext
@@ -40,7 +40,7 @@ class RoutesActor() extends Actor with HttpService with LazyLogging {
   }
 }
 
-@Api(value = "/movieService", description = "Movie inventory management API")
+@Api(value = "/movieSvc", description = "Movie inventory management service")
 class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManagerTrait {
 
   import SprayJsonSupport._
@@ -62,7 +62,7 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
     new MovieImpl(
       title = "pigs",
       media = com.romcaste.video.movie.MediaType.VHS,
-      year = 2009,
+      year = 2000,
       description = "a movie about pigs",
       actors = List("rover", "porky"),
       rating = Rating.G))
@@ -70,6 +70,8 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
 
   def actorRefFactory = ctx
 
+
+  //@Path("/movie")
   @ApiOperation(
     httpMethod = "GET",
     response = classOf[MovieImpl],
@@ -94,6 +96,7 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
     }
   } ~ MovieListGetRoute ~ MovieSortedByGetRoute
 
+  //@Path("/movies")
   @ApiOperation(
     httpMethod = "GET",
     response = classOf[List[MovieImpl]],
@@ -116,7 +119,7 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
 
   //value = "Returns a list of movies matching the given search criteria")
 
-
+  //@Path("/moviesSortedBy")
   @ApiOperation(
     httpMethod = "GET",
     response = classOf[List[MovieImpl]],
@@ -154,10 +157,11 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   }
 
 
+  //@Path("/movies")
   @ApiOperation(
     value = "Add Movie",
     nickname = "addMovie",
-    httpMethod = "POST",
+    httpMethod = "PUT",
     consumes = "application/json",
     produces = "application/json;charset=UTF-8")
   @ApiImplicitParams(Array(
@@ -172,7 +176,7 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
     new ApiResponse(code = 201, message = "Entity Created")
   ))
   def MoviePostRoute = path("movieSvc" / "movies") {
-    post {
+    put {
       requestInstance { request =>
         entity(as[MovieImpl]) {
           (movieToInsert: MovieImpl) => {
@@ -240,7 +244,7 @@ class ApiDocsHttpService(ctx: ActorRefFactory) extends SwaggerHttpService {
   override def apiInfo =
     Some(
       new ApiInfo(
-        "MovieRepositoryManager",
+        "Movie Repository Management API",
         "An api for managing assets in a movie database",
         "TOC Url",
         "chris@buildlackey.com",

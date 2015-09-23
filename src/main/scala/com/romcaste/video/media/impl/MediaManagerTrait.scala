@@ -83,7 +83,7 @@ trait MediaManagerTrait extends com.romcaste.video.media.MediaManager {
       (m1: Movie, m2: Movie) => {
         val impl1 = m1.asInstanceOf[MovieImpl]
         val impl2 = m2.asInstanceOf[MovieImpl]
-        val comparator = flipBooleanFunc(impl1.stateMap(field).comparator, !ascending /* flip if descending*/)
+        val comparator = flipBooleanFunc(impl1.getStateMapField(field).comparator, !ascending /* flip if descending*/)
         comparator(impl1, impl2)
       }
     )
@@ -99,7 +99,7 @@ trait MediaManagerTrait extends com.romcaste.video.media.MediaManager {
     val filteredList = inventoryAsList.filter(
       (m1: Movie) => {
         val impl1 = m1.asInstanceOf[MovieImpl]
-        val filter  = impl1.stateMap(field).filter
+        val filter  = impl1.getStateMapField(field).filter
         filter(impl1, op, query)
       }
     )

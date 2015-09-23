@@ -13,6 +13,7 @@ final case class MovieImpl(title: String,
                       description: String,
                       actors: List[String],
                       rating: Rating) extends Movie {
+
   require(title != null && !title.isEmpty, "title can not be empty")
   require(media != null)
   require(description != null) // empty description could make sense, so allow it
@@ -92,7 +93,7 @@ final case class MovieImpl(title: String,
     }
   }
 
-  val stateMap: Map[Field, FieldRepresentation] = Map(
+  private val stateMap: Map[Field, FieldRepresentation] = Map(
     TITLE ->
       FieldRepresentation(
         TITLE, _.getTitle < _.getTitle, filterByField(TITLE), title, title),
@@ -114,6 +115,9 @@ final case class MovieImpl(title: String,
   )
 
   private[this] val stateValues = stateMap.values.toList.map(_.fieldValAsScala)
+
+
+  def getStateMapField(field: Field) = stateMap(field)
 
   def containsString(str: String) = stateValues exists (_.toString.toLowerCase.contains(str.toLowerCase))
 

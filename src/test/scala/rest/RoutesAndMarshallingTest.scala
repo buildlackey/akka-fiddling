@@ -52,8 +52,8 @@ class RoutesAndMarshallingTest extends Specification with Specs2RouteTest {
         status mustEqual StatusCodes.NotFound
       }
     }
-    "return a 201 after successful POST of test fixture that is auto-marshalled to JSON " in {
-      Post(
+    "return a 201 after successful PUT of test fixture that is auto-marshalled to JSON " in {
+      Put(
         "/movieSvc/movies",
         new MovieImpl(
           "title1", MediaType.VHS, 2000, "a description", List("mike", "ike"), Rating.PG)) ~>
@@ -62,22 +62,22 @@ class RoutesAndMarshallingTest extends Specification with Specs2RouteTest {
           status === StatusCodes.Created
         }
     }
-    "return a 201 after successful POST of a hand crafted JSON string test fixture" in {
+    "return a 201 after successful PUT of a hand crafted JSON string test fixture" in {
       val jsonString = getMovieAsJsonString("2000")
 
       val entity = HttpEntity(`application/json`, jsonString.getBytes)
 
-      Post( "/movieSvc/movies", entity) ~>
+      Put( "/movieSvc/movies", entity) ~>
         svc.getRoute ~>
         check {
           status === StatusCodes.Created
         }
     }
-    "return a 400 (bad request) after failed POST of invalid hand crafted JSON string test fixture" in {
+    "return a 400 (bad request) after failed PUT of invalid hand crafted JSON string test fixture" in {
       val jsonString = getMovieAsJsonString("2200")   //  deliberately provide movie with an invalid year
       val entity = HttpEntity(`application/json`, jsonString.getBytes)
 
-      Post( "/movieSvc/movies", entity) ~>
+      Put( "/movieSvc/movies", entity) ~>
         svc.getRoute ~>
         check {
           System.out.println("status:" + status);

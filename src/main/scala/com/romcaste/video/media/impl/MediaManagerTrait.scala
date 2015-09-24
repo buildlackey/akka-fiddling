@@ -27,6 +27,10 @@ trait MediaManagerTrait extends com.romcaste.video.media.MediaManager {
     inventory ++= movies
     inventoryAsList = inventory.toList // representation supporting Scala methods during sort, search, etc
     inventoryAsJavaList = inventory.toList.asJava // for direct returns from getMovies, which want java lists
+
+    //System.out.println("AFTER ADD inventory:" + inventory);
+    //System.out.println("AFTER ADD inventoryAsList:" + inventoryAsList);
+    //System.out.println("AFTER ADD inventoryAsJavaList:" + inventoryAsJavaList);
   }
 
   // Public methods
@@ -85,12 +89,12 @@ trait MediaManagerTrait extends com.romcaste.video.media.MediaManager {
         val impl2 = m2.asInstanceOf[MovieImpl]
         val comparator = flipBooleanFunc(impl1.getStateMapField(field).comparator, !ascending /* flip if descending*/)
         val res  = comparator(impl1, impl2)
-        System.out.println("res of flipped:" + res);
+        //System.out.println("res of flipped:" + res);
         res
       }
     )
     val listo = sortedList.asJava
-    System.out.println("listo:" + listo);
+    //System.out.println("listo:" + listo);
     listo
   }
 

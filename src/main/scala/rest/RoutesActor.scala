@@ -4,11 +4,13 @@ import java.util
 import javax.ws.rs.Path
 
 import akka.actor.{ActorRefFactory, Actor}
+import com.romcaste.video.media.Operator
 import com.romcaste.video.media.impl.MediaManagerTrait
 import com.romcaste.video.movie.{Field, Movie, Rating}
 import com.romcaste.video.movie.impl.MovieImpl
 import com.wordnik.swagger.annotations._
 import spray.http.HttpHeaders.{Location, RawHeader}
+import spray.httpx.marshalling.Marshaller
 import spray.json.{JsValue, JsString, RootJsonFormat}
 import spray.routing.directives.ContentTypeResolver
 import spray.util.LoggingContext
@@ -41,6 +43,7 @@ class RoutesActor() extends Actor with HttpService with LazyLogging {
 
 }
 
+
 @Api(value = "/movieSvc", description = "Movie inventory management service")
 class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManagerTrait {
 
@@ -48,6 +51,7 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   import com.romcaste.video.movie.Field._
   import com.romcaste.video.movie.MediaType._
   import com.romcaste.video.media.Operator._
+  import com.romcaste.video.movie.impl.MovieImpl
 
   implicit val timeout = Timeout(5.seconds)
 
@@ -95,7 +99,7 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
         if (movieList.isEmpty) complete(NotFound) else complete(movieList.get(0).asInstanceOf[MovieImpl])
       }
     }
-  } ~ MovieListGetRoute ~ MovieSortedByGetRoute
+  } ~ MovieListGetRoute ~ MovieSortedByGetRoute ~ MovieFilteredByGetRoute
 
   @Path("/movies/")
   @ApiOperation(
@@ -107,19 +111,18 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   def MovieListGetRoute = get {
     path("movieSvc" / "movies" /) {
       respondWithMediaType(`application/json`) {
-        val movieList: util.List[Movie] = getMovies
-        val movieImplList = movieList.asScala.map {
-          _.asInstanceOf[MovieImpl]
-        }.toList
-        System.out.println("movieImplList:" + movieImplList);
-        complete(movieImplList.toList)
+        complete {
+          val movieList: util.List[Movie] = sortMovies(TITLE, true)
+          val movieImplList = movieList.asScala.map {
+            _.asInstanceOf[MovieImpl]
+          }.toList
+          System.out.println(">>>>Here is the movieImplList:" + movieImplList);
+          movieImplList.toList
+        }
       }
     }
   }
 
-
-
-  //value = "Returns a list of movies matching the given search criteria")
 
   @Path("/moviesSortedBy")
   @ApiOperation(
@@ -161,10 +164,58 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   }
 
 
+  @Path("/moviesFilteredBy")
+  @ApiOperation(
+    httpMethod = "GET",
+    response = classOf[List[MovieImpl]],
+    value = "Returns movies matching constraint that <specified-field> <specified-operator> <constant> is true")
+  @ApiImplicitParams(
+    Array(
+      new ApiImplicitParam(
+        name = "field",
+        required = false,
+        dataType = "string",
+        paramType = "query",
+        value = "field selected to be compared against constant"),
+      new ApiImplicitParam(
+        name = "operator",
+        required = true,
+        dataType = "string",
+        paramType = "query",
+        value = "one of the following: CONTAINS, EQUALS, LESS_THAN, GREATER_THAN"),
+      new ApiImplicitParam(
+        name = "constant",
+        required = true,
+        dataType = "string",
+        paramType = "query",
+        value = "a URL encoded string value")
+    )
+  )
+  @ApiResponses(Array(
+    new ApiResponse(code = 200, message = "Ok")))
+  def MovieFilteredByGetRoute = get {
+    path("movieSvc" / "moviesFilteredBy") {
+      parameter("field") { (field: String) =>
+        parameter("operator") { (operator: String) =>
+          parameter("constant") { (constant: String) =>
+            respondWithMediaType(`application/json`) {
+              val movies: List[Movie] =
+                filterMovies(
+                  Field.valueOf(field), Operator.valueOf(operator), constant).asScala.toList
+              val movieImplList = movies.map {
+                _.asInstanceOf[MovieImpl]
+              }.toList
+              complete(movieImplList)
+            }
+          }
+        }
+      }
+    }
+  }
 
   @Path("/movies")
   @ApiOperation(
-    value = "Add Movie",
+    value = "Adds a Movie - note that there is a bug with the Swagger documentation - you have to enter 'year' by hand",
     nickname = "addMovie",
     httpMethod = "PUT",
     consumes = "application/json",
@@ -182,16 +233,18 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
   ))
   def MoviePostRoute = path("movieSvc" / "movies") {
     put {
-      requestInstance { request =>
-        entity(as[MovieImpl]) {
-          (movieToInsert: MovieImpl) => {
-            addMovies(movieToInsert)
-            val pathToNewResource = request.uri.withPath(request.uri.path / movieToInsert.getTitle)
-            respondWithHeaders(Location(pathToNewResource)) {
-              complete(StatusCodes.Created)
+      requestInstance {
+        request =>
+          entity(as[MovieImpl]) {
+            (movieToInsert: MovieImpl) => {
+              addMovies(movieToInsert)
+              val pathToNewResource = request.uri.withPath(request.uri.path / movieToInsert.getTitle)
+              respondWithHeaders(Location(pathToNewResource)) {
+                println("movie list is now:" + getMovies)
+                complete(StatusCodes.Created)
+              }
             }
           }
-        }
       }
     }
   }
@@ -199,13 +252,15 @@ class MovieHttpService(ctx: ActorRefFactory) extends HttpService with MediaManag
 
   def getRoute: Route = {
     implicit val context = ctx
+
     import spray.routing.directives.ContentTypeResolver.Default
     import spray.util.LoggingContext
 
     val exceptionHandler = ExceptionHandler {
       case e: IllegalArgumentException =>
-        requestUri { uri =>
-          complete(BadRequest, "Invalid request" + e.getMessage)
+        requestUri {
+          uri =>
+            complete(BadRequest, "Invalid request" + e.getMessage)
         }
     }
 
